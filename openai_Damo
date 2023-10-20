@@ -1,0 +1,39 @@
+import openai
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+# 將你的 API KEY 放在這裡
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# 初始化對話歷史
+conversation = [
+    {"role": "system", "content": "You are a helpful assistant."}
+]
+
+while True:
+    # 獲取使用者輸入
+    user_input = input("You: ")
+    conversation.append({"role": "user", "content": user_input})
+    
+    # 判斷是否結束對話
+    if user_input.lower() == 'quit':
+        print("Assistant: Goodbye!")
+        break
+
+    # 呼叫 OpenAI API 來獲取回應
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # 可以選擇不同的模型
+        messages=conversation,
+        temperature=0.6,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+
+    # 從 API 回應中提取聊天機器人的回應
+    message = response['choices'][0]['message']['content']
+    
+    # 顯示並將新的回應加入到對話歷史
+    print(f"Assistant: {message}")
+    conversation.append({"role": "assistant", "content": message})
