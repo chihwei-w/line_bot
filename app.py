@@ -20,6 +20,9 @@ from linebot.v3.webhooks import (
 
 from dotenv import load_dotenv
 
+# 呼叫 OpenAI API
+import openai
+
 app = Flask(__name__)
 
 load_dotenv()
@@ -49,10 +52,7 @@ def callback():
 
     return 'OK'
 
-# 呼叫 OpenAI API
-import openai
-from dotenv import load_dotenv
-import os
+
 
 load_dotenv()
 # API KEY
@@ -93,19 +93,19 @@ def handle_message(event):
 
     # 查找用戶的對話歷史
     if user_id in user_history:
-        conversation = user_history[user_id]
+        user_conversation = user_history[user_id]
     else:
         # 如果用戶的對話歷史不存在，則創建一個新的對話
-        conversation = [
+        user_conversation = [
             {"role": "system", "content": "你是一個有幫助的助手。"}
         ]
-
+        user_history[user_id] = user_conversation 
     # 將用戶當前的訊息加入到歷史中
-    conversation.append({"role": "user", "content": user_input})
-    user_history[user_id] = conversation
+    user_history[user_id].append({"role": "user", "content": user_input})
 
     # 將對話歷史傳送給 OpenAI API
-    response = get_gpt_response(conversation)
+    response = get_gpt_response(user_history[user_id])
+    user_history[user_id].append({"role": "assitant", "content": response})
 
     with ApiClient(configuration) as api_client:  # 使用 Line API 進行回應
         line_bot_api = MessagingApi(api_client)
