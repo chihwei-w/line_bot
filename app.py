@@ -34,6 +34,7 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 # 初始化用戶對話歷史的字典
 user_history = {}
 
+
 @app.route("/callback", methods=['POST'])
 def callback():
     # 獲取 X-Line-Signature 標頭的值
@@ -47,11 +48,11 @@ def callback():
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
+        app.logger.info(
+            "Invalid signature. Please check your channel access token/channel secret.")
         abort(400)
 
     return 'OK'
-
 
 
 load_dotenv()
@@ -65,26 +66,29 @@ conversation = [
 
 # 獲取 OpenAI 回應
 response = openai.ChatCompletion.create(
-        model="gpt-4",  # 可以選擇不同的模型
-        messages=conversation,
-        temperature=1,
-        max_tokens=5000,
-        n=1,
-        stop=None,
-    )
+    model="gpt-4",  # 可以選擇不同的模型
+    messages=conversation,
+    temperature=1,
+    max_tokens=5000,
+    n=1,
+    stop=None,
+)
 
 # 顯示並將新的回應加入到對話歷史
+
+
 def get_gpt_response(conversation):
     response = openai.ChatCompletion.create(
         model="gpt-4",
-        messages=conversation, # 將對話歷史傳遞給 OpenAI API
+        messages=conversation,  # 將對話歷史傳遞給 OpenAI API
         temperature=1,
         max_tokens=5000,
         n=1,
         stop=None,
     )
 
-    return response.choices[0].message.content # 回傳 OpenAI 的回應
+    return response.choices[0].message.content  # 回傳 OpenAI 的回應
+
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
@@ -99,13 +103,13 @@ def handle_message(event):
         user_conversation = [
             {"role": "system", "content": "你是一個有幫助的助手。"}
         ]
-        user_history[user_id] = user_conversation 
+        user_history[user_id] = user_conversation
     # 將用戶當前的訊息加入到歷史中
     user_history[user_id].append({"role": "user", "content": user_input})
 
     # 將對話歷史傳送給 OpenAI API
     response = get_gpt_response(user_history[user_id])
-    user_history[user_id].append({"role": "assitant", "content": response})
+    user_history[user_id].append({"role": "assistant", "content": response})
 
     with ApiClient(configuration) as api_client:  # 使用 Line API 進行回應
         line_bot_api = MessagingApi(api_client)
@@ -116,5 +120,6 @@ def handle_message(event):
             )
         )
 
+
 if __name__ == "__main__":
-    app.run() # 啟動 Flask 應用程式
+    app.run()  # 啟動 Flask 應用程式
