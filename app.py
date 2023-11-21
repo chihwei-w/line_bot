@@ -32,7 +32,9 @@ configuration = Configuration(access_token=os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
 # 初始化用戶對話歷史的字典
-user_history = {}
+user_chat_history = {}
+user_play_history = {}
+user_mode = {}
 
 
 @app.route("/callback", methods=['POST'])
@@ -95,21 +97,45 @@ def handle_message(event):
     user_id = event.source.user_id  # 獲取用戶的唯一識別符號
     user_input = event.message.text  # 獲取使用者輸入的訊息
 
-    # 查找用戶的對話歷史
-    if user_id in user_history:
-        user_conversation = user_history[user_id]
-    else:
-        # 如果用戶的對話歷史不存在，則創建一個新的對話
-        user_conversation = [
-            {"role": "system", "content": "你是一個有幫助的助手。"}
-        ]
-        user_history[user_id] = user_conversation
-    # 將用戶當前的訊息加入到歷史中
-    user_history[user_id].append({"role": "user", "content": user_input})
+    if user_id not in user_mode:
+        user_mode[user_id] = "chat"
 
-    # 將對話歷史傳送給 OpenAI API
-    response = get_gpt_response(user_history[user_id])
-    user_history[user_id].append({"role": "assistant", "content": response})
+    if user_input == "遊戲結束":
+        user_mode[user_id] = "chat"
+        user_chat_history[user_id] = []
+
+    if user_input == "遊戲":
+        user_mode[user_id] = "play"
+        user_conversation = [
+            {"role": "system",
+             "content": "你是一位情境猜謎的出題者。\n規則如下:\n一開始由出題者給予一個不完整的故事，讓猜題者提問各種可能性的問題，而出題者解答這些問題只能說「是」、「不是」或「無關」這些答案，因此猜題者必須在有限的線索中推理出事件的始末，藉由限定性的問答拼湊出故事的全貌。如果輸入\"完整故事\"，就可以知道完整的故事並結束遊戲。不要有海龜的元素在題目裡。好的題目例子:我住在一棟大樓裡，一天我從窗戶往外看，發現對面大樓有個男人。我們四目相對，他突然用手往我指了幾下，露出一個詭異的笑容，我意識到了一件事，瞬間毛骨悚然。請問我發現了什麼？完整故事:我意外目睹了一場兇殺案，對面大樓的兇手用手指著我，是在數我住在幾樓，準備殺了我這個目擊者。\n"}
+        ]
+        user_play_history[user_id] = user_conversation
+
+    if user_mode[user_id] == "play":
+        # 將對話歷史傳送給 OpenAI API
+        user_play_history[user_id].append(
+            {"role": "user", "content": user_input})
+        response = get_gpt_response(user_play_history[user_id])
+        user_play_history[user_id].append(
+            {"role": "assistant", "content": response})
+    elif user_mode[user_id] == "chat":
+        if user_id in user_chat_history:
+            user_conversation = user_chat_history[user_id]
+        else:
+            # 如果用戶的對話歷史不存在，則創建一個新的對話
+            user_conversation = [
+                {"role": "system", "content": "你是一個有幫助的助手。"}
+            ]
+            user_chat_history[user_id] = user_conversation
+        # 將用戶當前的訊息加入到歷史中
+        user_chat_history[user_id].append(
+            {"role": "user", "content": user_input})
+
+        # 將對話歷史傳送給 OpenAI API
+        response = get_gpt_response(user_chat_history[user_id])
+        user_chat_history[user_id].append(
+            {"role": "assistant", "content": response})
 
     with ApiClient(configuration) as api_client:  # 使用 Line API 進行回應
         line_bot_api = MessagingApi(api_client)
@@ -119,6 +145,7 @@ def handle_message(event):
                 messages=[TextMessage(text=response)]  # 設定要發送的訊息
             )
         )
+    print(f"User: {user_id}, Mode: {user_mode.get(user_id)}")
 
 
 if __name__ == "__main__":
